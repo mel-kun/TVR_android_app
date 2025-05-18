@@ -1,0 +1,116 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    "users": {
+      ".read": "auth != null",
+      ".indexOn": ["email"],
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".validate": "newData.hasChildren(['name', 'email', 'phone', 'role', 'address'])",
+        "email": {
+          ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$/)"
+        },
+        "role": {
+          ".validate": "newData.isString() && (newData.val() === 'passenger' || newData.val() === 'driver' || newData.val() === 'admin')"
+        },
+        "address": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        }
+      }
+    },
+    "drivers": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'driver' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      ".indexOn": ["status"],
+      "$driverId": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid === $driverId || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        "status": {
+          ".write": "auth != null && (auth.uid === $driverId || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+          ".validate": "newData.isString() && (newData.val() === 'online' || newData.val() === 'offline' || newData.val() === 'busy')"
+        },
+        ".validate": "newData.hasChildren(['name', 'email', 'phone', 'plateNumber'])",
+        "email": {
+          ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$/)"
+        },
+        "location": {
+          ".validate": "newData.hasChildren(['latitude', 'longitude', 'timestamp'])",
+          "latitude": {
+            ".validate": "newData.isNumber()"
+          },
+          "longitude": {
+            ".validate": "newData.isNumber()"
+          },
+          "timestamp": {
+            ".validate": "newData.isNumber()"
+          }
+        }
+      }
+    },
+    "bookings": {
+      ".read": "auth != null",
+      ".indexOn": ["status", "timestamp"],
+      "$bookingId": {
+        ".read": "auth != null",
+        ".write": "auth != null && (!data.exists() || data.child('userId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'driver' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".validate": "newData.hasChildren(['userId', 'pickupAddress', 'dropoffAddress', 'fare', 'status', 'timestamp'])",
+        "status": {
+          ".validate": "newData.isString() && ((!data.exists() && newData.val() === 'pending') || (data.exists() && ((data.child('status').val() === 'pending' && newData.val() === 'accepted' && root.child('users').child(auth.uid).child('role').val() === 'driver') || (data.child('status').val() === 'accepted' && newData.val() === 'started') || (data.child('status').val() === 'started' && newData.val() === 'completed') || (data.child('status').val() === 'pending' && newData.val() === 'cancelled') || (data.child('status').val() === 'accepted' && newData.val() === 'cancelled'))))"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber()"
+        },
+        "fare": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "driverId": {
+          ".validate": "!newData.exists() || (root.child('users').child(newData.val()).child('role').val() === 'driver' && data.child('status').val() === 'pending' && newData.val() === auth.uid)"
+        }
+      }
+    },
+    "trips": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'driver' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      "$tripId": {
+        ".validate": "newData.hasChildren(['driverId', 'passengerId', 'pickup', 'dropoff', 'status', 'timestamp', 'currentLocation'])",
+        "status": {
+          ".validate": "newData.isString() && ((!data.exists() && newData.val() === 'in_progress') || (data.exists() && ((data.child('status').val() === 'in_progress' && newData.val() === 'completed') || (data.child('status').val() === 'in_progress' && newData.val() === 'cancelled'))))"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber()"
+        },
+        "currentLocation": {
+          ".validate": "newData.hasChildren(['latitude', 'longitude', 'timestamp'])",
+          "latitude": {
+            ".validate": "newData.isNumber()"
+          },
+          "longitude": {
+            ".validate": "newData.isNumber()"
+          },
+          "timestamp": {
+            ".validate": "newData.isNumber()"
+          }
+        }
+      }
+    },
+    "user-bookings": {
+      ".read": "auth != null",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$bookingId": {
+          ".validate": "root.child('bookings').child($bookingId).exists() && root.child('bookings').child($bookingId).child('userId').val() === auth.uid"
+        }
+      }
+    },
+    "available_bookings": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'driver'",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'driver'",
+      ".indexOn": ["timestamp"],
+      "$bookingId": {
+        ".validate": "root.child('bookings').child($bookingId).exists() && root.child('bookings').child($bookingId).child('status').val() === 'pending'"
+      }
+    }
+  }
+} 
